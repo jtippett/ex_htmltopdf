@@ -25,7 +25,10 @@ defmodule ExHtmltopdf.Native do
       x86_64-unknown-linux-gnu
       aarch64-unknown-linux-gnu
     ),
-    force_build: System.get_env("EXHTMLTOPDF_BUILD") in ["1", "true"]
+    force_build:
+      System.get_env("EXHTMLTOPDF_BUILD") in ["1", "true"] or
+        (Mix.env() in [:dev, :test] and Code.ensure_loaded?(Mix.Project) and
+           Mix.Project.config()[:app] == :ex_htmltopdf)
 
   # Keep these stubs in sync with the #[rustler::nif] fns in
   # native/ex_htmltopdf/src/lib.rs. Each raises until the NIF library loads.

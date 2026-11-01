@@ -24,4 +24,4 @@ rustler = "0.38"
 #     exactly like the Ruby gem does).
 #   - "server" (tiny_http) is the standalone HTTP server mode. Useless inside
 #     the BEAM (Plug exists) — left off.
-sghtmltopdf = { version = "0.6", default-features = false, features = ["cli"] }
+sghtmltopdf = { version = "0.7", default-features = false, features = ["cli"] }
