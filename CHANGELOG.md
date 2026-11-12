@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## 0.7.0 - 2026-11-12
+
 ### Changed
 
 - Updated sghtmltopdf from v0.1.1 to v0.7.0 (`91b85a61`). Rendered output

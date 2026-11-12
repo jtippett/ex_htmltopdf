@@ -30,7 +30,7 @@ written in Rust on Servo components (html5ever, Stylo, Taffy).
 ```elixir
 def deps do
   [
-    {:ex_htmltopdf, "~> 0.1"}
+    {:ex_htmltopdf, "~> 0.7"}
   ]
 end
 ```
