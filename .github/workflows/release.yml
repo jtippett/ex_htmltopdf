@@ -130,17 +130,33 @@ jobs:
         # Keeps the tracked checksum file in sync with what Hex actually
         # shipped (ex_monty pattern) — otherwise it stays stale until the
         # next release and the repo disagrees with the published package.
+        #
+        # The commit is made in a separate worktree on top of the *current*
+        # master, not on the tag checkout: master may have moved since the tag
+        # (a push while the NIFs were building made the v0.7.0 publish fail
+        # with a non-fast-forward). The tag checkout stays untouched, so the
+        # package published below is still exactly the tagged tree.
         run: |
-          git fetch origin master:refs/remotes/origin/master
-          if git diff --quiet origin/master -- checksum-Elixir.ExHtmltopdf.Native.exs; then
-            echo "Checksum is already present on master"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add checksum-Elixir.ExHtmltopdf.Native.exs
-            git commit -m "Update precompiled NIF checksums for ${GITHUB_REF_NAME}"
-            git push origin HEAD:master
-          fi
+          file=checksum-Elixir.ExHtmltopdf.Native.exs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          for attempt in 1 2 3; do
+            git fetch origin master:refs/remotes/origin/master
+            if git diff --quiet origin/master -- "$file"; then
+              echo "Checksum is already present on master"
+              exit 0
+            fi
+            rm -rf ../master-checksum && git worktree prune
+            git worktree add --detach ../master-checksum origin/master
+            cp "$file" ../master-checksum/
+            git -C ../master-checksum add "$file"
+            git -C ../master-checksum commit -m "Update precompiled NIF checksums for ${GITHUB_REF_NAME}"
+            if git -C ../master-checksum push origin HEAD:master; then
+              exit 0
+            fi
+            echo "master moved during the push (attempt $attempt); retrying"
+          done
+          exit 1
 
       - name: Publish package to Hex
         run: mix hex.publish package --yes
