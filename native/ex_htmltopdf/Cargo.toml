@@ -12,10 +12,10 @@ crate-type = ["cdylib"]
 [dependencies]
 rustler = "0.38"
 
-# Pinned to the full 40-char hash of the commit the latest upstream tag points
-# at — the ExMonty approach. Bump deliberately via UPDATE_PROCEDURE.md. (The
-# crate is also on crates.io as `sghtmltopdf`; we
-# keep the git pin so `ExHtmltopdf.upstream_revision/0` stays exact.)
+# From crates.io, pinned to an exact version: upstream is pre-1.0 and changes
+# rendered output between releases, so every bump is deliberate
+# (UPDATE_PROCEDURE.md). `ExHtmltopdf.upstream_version/0` reads the resolved
+# version from Cargo.lock.
 #
 # Feature notes:
 #   - default = ["cli", "server", "svg"]. We need "cli": it provides
@@ -29,7 +29,7 @@ rustler = "0.38"
 #     defaults it: 25 extra crates.)
 #   - "server" (tiny_http) is the standalone HTTP server mode. Useless inside
 #     the BEAM (Plug exists) — left off.
-sghtmltopdf = { git = "https://github.com/waka/sghtmltopdf.git", rev = "91b85a6163dcd2589605bdecbc20905ec1d67f4b", default-features = false, features = [
+sghtmltopdf = { version = "=0.7.0", default-features = false, features = [
     "cli",
     "svg",
 ] }

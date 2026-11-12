@@ -934,7 +934,8 @@ dependencies = [
 [[package]]
 name = "sghtmltopdf"
 version = "0.7.0"
-source = "git+https://github.com/waka/sghtmltopdf.git?rev=91b85a6163dcd2589605bdecbc20905ec1d67f4b#91b85a6163dcd2589605bdecbc20905ec1d67f4b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36f18c15a75d87a49337aee4c4d622eab76b134752c318bb39369ff02e8d8de6"
 dependencies = [
  "base64 0.22.1",
  "clap",

@@ -121,20 +121,24 @@ defmodule ExHtmltopdf do
     end
   end
 
-  # Extracted at compile time from the Cargo pin so it can never drift.
-  @external_resource cargo_toml =
-                       Path.expand("../native/ex_htmltopdf/Cargo.toml", __DIR__)
-  [_, upstream_revision] = Regex.run(~r/rev = "([0-9a-f]{40})"/, File.read!(cargo_toml))
-  @upstream_revision upstream_revision
+  # Extracted at compile time from the lockfile (what the NIF is actually
+  # built against, whether the dependency is the crates.io pin or a path
+  # checkout during an upstream bump) so it can never drift.
+  @external_resource cargo_lock =
+                       Path.expand("../native/ex_htmltopdf/Cargo.lock", __DIR__)
+  [_, upstream_version] =
+    Regex.run(~r/name = "sghtmltopdf"\nversion = "([^"]+)"/, File.read!(cargo_lock))
+
+  @upstream_version upstream_version
 
   @doc """
-  The full git revision of [sghtmltopdf](https://github.com/waka/sghtmltopdf)
-  this build wraps. Include it in upstream bug reports.
+  The version of the [sghtmltopdf](https://crates.io/crates/sghtmltopdf)
+  crate this build wraps. Include it in upstream bug reports.
 
-      iex> ExHtmltopdf.upstream_revision() =~ ~r/^[0-9a-f]{40}$/
+      iex> ExHtmltopdf.upstream_version() =~ ~r/^\\d+\\.\\d+\\.\\d+/
       true
 
   """
-  @spec upstream_revision() :: String.t()
-  def upstream_revision, do: @upstream_revision
+  @spec upstream_version() :: String.t()
+  def upstream_version, do: @upstream_version
 end

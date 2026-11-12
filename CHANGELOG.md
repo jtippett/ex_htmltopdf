@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- sghtmltopdf is now taken from crates.io, pinned to exactly 0.7.0, instead
+  of a git revision (thanks to @nakagami, #1). The published crate is
+  identical to the revision 0.7.0 was built from, so rendering is unchanged;
+  a source build now fetches one crate instead of cloning the upstream
+  repository.
+
+### Added
+
+- `ExHtmltopdf.upstream_version/0` — the sghtmltopdf crate version this
+  build wraps (`"0.7.0"`).
+
+### Removed
+
+- `ExHtmltopdf.upstream_revision/0`. There is no git revision now that the
+  engine comes from crates.io; use `ExHtmltopdf.upstream_version/0`.
+
 ## 0.7.0 - 2026-11-12
 
 ### Changed

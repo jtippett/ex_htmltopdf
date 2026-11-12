@@ -12,8 +12,10 @@ defmodule ExHtmltopdfTest do
       assert ExHtmltopdf.Native.default_page_size() =~ ~r/^\d+(\.\d+)?x\d+(\.\d+)?$/
     end
 
-    test "upstream_revision/0 exposes the Cargo pin" do
-      assert ExHtmltopdf.upstream_revision() =~ ~r/^[0-9a-f]{40}$/
+    test "upstream_version/0 exposes the version in Cargo.lock, matching the Cargo.toml pin" do
+      version = ExHtmltopdf.upstream_version()
+      assert version =~ ~r/^\d+\.\d+\.\d+/
+      assert File.read!("native/ex_htmltopdf/Cargo.toml") =~ ~s(version = "=#{version}")
     end
   end
 

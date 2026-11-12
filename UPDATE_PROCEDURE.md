@@ -5,10 +5,9 @@ update ExHtmltopdf.
 
 ## Overview
 
-ExHtmltopdf pins a specific sghtmltopdf git revision in
-`native/ex_htmltopdf/Cargo.toml` (the ExMonty/monty approach; the crate is
-also on crates.io as `sghtmltopdf`, but `ExHtmltopdf.upstream_revision/0`
-reads the hash from the git pin). This procedure walks through pulling,
+ExHtmltopdf pins an exact sghtmltopdf version from crates.io
+(`sghtmltopdf = { version = "=X.Y.Z", … }` in
+`native/ex_htmltopdf/Cargo.toml`). This procedure walks through pulling,
 assessing, and integrating changes.
 
 **Track tagged releases, not `main`.** Upstream cuts `v0.x.y` tags; target the
@@ -27,7 +26,9 @@ cd ../sghtmltopdf && git fetch origin --tags
 git tag --sort=-version:refname | head -5
 ```
 
-Pick the highest tag. That's the **target rev** for this update. Check the
+Pick the highest tag. That's the **target** for this update. Confirm the
+same version is on crates.io (`cargo info sghtmltopdf`) — upstream publishes
+the crate as part of cutting the tag. Check the
 tag out (`git checkout --detach <TARGET_TAG>`) — Phase 2's path dependency
 builds whatever the working tree holds.
 
@@ -41,9 +42,10 @@ are history modifiers and silently eat the first character of the path.
 ### 1.2 Identify our current pin
 
 ```bash
-grep 'rev = ' native/ex_htmltopdf/Cargo.toml
-cd ../sghtmltopdf && git describe --tags <OUR_PINNED_REV>
+grep '^sghtmltopdf = ' native/ex_htmltopdf/Cargo.toml
 ```
+
+Our pin is the tag `v<that version>`; use it as `<OUR_PINNED_REV>` below.
 
 ### 1.3 Review changes since our pin
 
@@ -115,13 +117,13 @@ users can discover them.
 Edit `native/ex_htmltopdf/Cargo.toml`:
 
 ```toml
-# sghtmltopdf = { git = "https://github.com/waka/sghtmltopdf.git", rev = "<40_CHAR_HASH>", default-features = false, features = ["cli", "svg"] }
+# sghtmltopdf = { version = "=X.Y.Z", default-features = false, features = ["cli", "svg"] }
 sghtmltopdf = { path = "../../../sghtmltopdf/core", default-features = false, features = ["cli", "svg"] }
 ```
 
-Keep the commented git line with a real 40-char hash in it:
-`ExHtmltopdf.upstream_revision/0` extracts `rev = "…"` from this file at
-compile time, and the Elixir build fails without one.
+(`ExHtmltopdf.upstream_version/0` reads `Cargo.lock`, so it keeps working
+here; the test comparing it with the `Cargo.toml` pin fails until Phase 3 —
+expected.)
 
 ### 2.2 Build, fix, test
 
@@ -143,17 +145,22 @@ moduledoc (especially the security posture section), CHANGELOG `[Unreleased]`.
 
 ## Phase 3: Pin and Ship
 
-### 3.1 Switch back to the git dependency
+### 3.1 Switch back to the crates.io dependency
 
 ```toml
-sghtmltopdf = { git = "https://github.com/waka/sghtmltopdf.git", rev = "<FULL_40_CHAR_HASH>", default-features = false, features = ["cli", "svg"] }
+sghtmltopdf = { version = "=<TARGET_VERSION>", default-features = false, features = ["cli", "svg"] }
 ```
 
-Use the full hash of the commit the **target tag** points at
-(`git rev-parse <TARGET_TAG>^{commit}`) — a hash can't silently move if a
-tag is force-updated.
+Exact (`=`), not caret: upstream is pre-1.0 and changes rendered output
+between releases, so a bump is always this procedure, never a side effect of
+`cargo update`. crates.io versions are immutable and the lockfile carries
+the checksum.
 
-### 3.2 Verify a clean build from the git dep
+If an urgent fix exists only on upstream `main`, a temporary
+`git = "…", rev = "<FULL_40_CHAR_HASH>"` dependency works — ask the user
+first, and return to a crates.io version at the next tag.
+
+### 3.2 Verify a clean build from crates.io
 
 ```bash
 cd native/ex_htmltopdf && cargo update -p sghtmltopdf
@@ -163,7 +170,7 @@ cd ../.. && mix clean && EXHTMLTOPDF_BUILD=1 mix test
 ### 3.3 CHANGELOG + commit
 
 ```
-Update sghtmltopdf to <short-hash> (<tag>)
+Update sghtmltopdf to <version>
 
 - <breaking changes fixed>
 - <new flags now available>

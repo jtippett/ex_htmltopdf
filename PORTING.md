@@ -104,12 +104,13 @@ preceding font). `Options.to_argv/1` already encodes this; don't reorder
 pairs. System font fallback uses fontdb; generic families are overridable
 (`gothic_font:`/`serif_font:`/`mono_font:`).
 
-### f) Upstream is pinned by git hash
+### f) Upstream is pinned to an exact crates.io version
 
-Like ExMonty we pin a full 40-char git hash of the commit a release tag
-points at. (The crate was git-only when this was written; it is now
-also on crates.io as `sghtmltopdf`. The git pin stays because
-`ExHtmltopdf.upstream_revision/0` reads the hash from `Cargo.toml`.) `UPDATE_PROCEDURE.md` has the bump procedure. Upstream is at
+The crate was git-only when this port started, so 0.1.0 pinned a full
+40-char git hash (the ExMonty approach). It is now published as
+`sghtmltopdf`, and we depend on `=X.Y.Z` from crates.io: immutable,
+checksum-verified, and a source build fetches one small crate instead of
+cloning the upstream repository. `UPDATE_PROCEDURE.md` has the bump procedure. Upstream is at
 `../sghtmltopdf` (sibling checkout).
 
 ---
@@ -136,8 +137,9 @@ subagent → fold fixes → commit → watch CI.
   the error contract total; rustler's own catch would raise an opaque
   `ErlangError`).
 - `default_page_size/0` smoke NIF proving core linkage (Ruby binding does
-  the same); `upstream_revision/0` surfaces the Cargo pin (compile-time
-  extracted, can't drift).
+  the same); `upstream_version/0` surfaces the Cargo pin (compile-time
+  extracted from `Cargo.lock`, can't drift; was `upstream_revision/0` while
+  the pin was a git hash).
 - **Deviation from upstream (reviewer-caught):** `FileSink` derives its temp
   name from `std::process::id()` alone — unique per CLI invocation, NOT
   unique when N dirty schedulers write the same path inside one BEAM
