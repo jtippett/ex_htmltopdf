@@ -1,6 +1,6 @@
 %{
-  "libex_htmltopdf-v0.1.0-nif-2.15-aarch64-apple-darwin.so.tar.gz" => "sha256:b9760e3bf11de6baa2a95f5f7fc658c8ee92f6acc8026443111dfab411f77c59",
-  "libex_htmltopdf-v0.1.0-nif-2.15-aarch64-unknown-linux-gnu.so.tar.gz" => "sha256:028d00680d5b0c3a3746678ee1b697c4ac471a81028eb6d2b33f0050729d193f",
-  "libex_htmltopdf-v0.1.0-nif-2.15-x86_64-apple-darwin.so.tar.gz" => "sha256:2f4d6149eeade8db77e61d55b0b4fd3d3693b5111b32a2c5a29c312db4659001",
-  "libex_htmltopdf-v0.1.0-nif-2.15-x86_64-unknown-linux-gnu.so.tar.gz" => "sha256:7d9926bfa2d5907cc98bdb93945f5cf4347206a71baa3ff87414968e0bfe3cf8",
+  "libex_htmltopdf-v0.7.0-nif-2.15-aarch64-apple-darwin.so.tar.gz" => "sha256:53f6f6cb28240c28d6c5abc786daec698c58c0d0ed390de99d22bd07a20ff795",
+  "libex_htmltopdf-v0.7.0-nif-2.15-aarch64-unknown-linux-gnu.so.tar.gz" => "sha256:2bc8fc28ffb4eed6c789281ca6efb3ada6fbd6180b9f344f07e99df161c91b1b",
+  "libex_htmltopdf-v0.7.0-nif-2.15-x86_64-apple-darwin.so.tar.gz" => "sha256:9fd4387f05b360c39f45d5351ec855c9307a9058bc0ea5b63c24dba8019aa8eb",
+  "libex_htmltopdf-v0.7.0-nif-2.15-x86_64-unknown-linux-gnu.so.tar.gz" => "sha256:64159ccb1585391a7f490723ff279dd1ec51665b608dd975b3dceffb787fa673",
 }
