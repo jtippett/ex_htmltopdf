@@ -1,8 +1,10 @@
 # Interactive release assistant. Run from the project root:
 #
 #     just release            # or:  elixir scripts/release.exs
+#     just release 0.7.0      # skip the menu and release exactly this version
 #
-# Shows the current and published versions, asks for a patch/minor/major bump,
+# Shows the current and published versions, asks for a patch/minor/major bump
+# (or any higher version you type in), updates the README install snippet,
 # rolls the CHANGELOG, then (with your confirmation) commits, tags, and pushes —
 # which starts the release workflow. The Hex publish still waits for your
 # approval on the `hex` GitHub environment.
@@ -10,7 +12,9 @@
 # Standalone Elixir — no mix/NIF compilation, just file edits + git.
 
 defmodule Release do
-  def run do
+  @release_files ["mix.exs", "README.md", "CHANGELOG.md"]
+
+  def run(argv) do
     {app, current} = read_mix()
     branch = trimmed(git!(["rev-parse", "--abbrev-ref", "HEAD"]))
 
@@ -22,6 +26,47 @@ defmodule Release do
     ensure_clean_tree!()
     confirm_branch!(branch)
 
+    new =
+      case argv do
+        [] -> choose(current)
+        [version] -> validate!(version, current)
+        _ -> die("usage: elixir scripts/release.exs [VERSION]")
+      end
+
+    unless yes?("bump #{current} → #{new} ?"), do: abort()
+
+    bump_mix!(current, new)
+    bump_readme!(app, new)
+    roll_changelog!(new)
+
+    IO.puts("\nchanges:")
+    IO.puts(git!(["--no-pager", "diff", "--" | @release_files]))
+
+    unless yes?("commit, tag v#{new}, and push? (this starts the release build)") do
+      IO.puts("""
+      Edits left in place, uncommitted.
+      Run `git checkout -- #{Enum.join(@release_files, " ")}` to discard them.
+      """)
+
+      System.halt(0)
+    end
+
+    git!(["add" | @release_files])
+    git!(["commit", "-m", "Release #{new}"])
+    git!(["tag", "-a", "v#{new}", "-m", "v#{new}"])
+    git!(["push", "origin", branch])
+    git!(["push", "origin", "v#{new}"])
+
+    IO.puts("""
+
+    ✅ pushed v#{new} — the release workflow is building the NIFs.
+       Final step: approve the `hex` deployment to publish:
+       #{actions_url()}
+    """)
+  end
+
+  # ── version choice ─────────────────────────────────────────────────────────
+  defp choose(current) do
     {maj, min, pat} = parse(current)
 
     choices = %{
@@ -37,36 +82,29 @@ defmodule Release do
       IO.puts("  #{k}) #{name} → #{ver}\t(#{note})")
     end
 
-    {_, new, _} = choices[prompt("choice [1-3]: ")] || abort()
-    unless yes?("bump #{current} → #{new} ?"), do: abort()
+    IO.puts("  4) other → enter a version\t(e.g. to track upstream's number)")
 
-    bump_mix!(current, new)
-    roll_changelog!(new)
-
-    IO.puts("\nchanges:")
-    IO.puts(git!(["--no-pager", "diff", "--", "mix.exs", "CHANGELOG.md"]))
-
-    unless yes?("commit, tag v#{new}, and push? (this starts the release build)") do
-      IO.puts("""
-      Edits left in place, uncommitted.
-      Run `git checkout -- mix.exs CHANGELOG.md` to discard them.
-      """)
-
-      System.halt(0)
+    case prompt("choice [1-4, or type a version]: ") do
+      "" -> abort()
+      "4" -> validate!(prompt("version: "), current)
+      input when is_map_key(choices, input) -> elem(choices[input], 1)
+      input -> validate!(input, current)
     end
+  end
 
-    git!(["add", "mix.exs", "CHANGELOG.md"])
-    git!(["commit", "-m", "Release #{new}"])
-    git!(["tag", "-a", "v#{new}", "-m", "v#{new}"])
-    git!(["push", "origin", branch])
-    git!(["push", "origin", "v#{new}"])
+  # A hand-entered version must be plain semver, move forward, and not collide
+  # with an existing tag — the menu choices satisfy the first two by construction.
+  defp validate!(input, current) do
+    version = String.trim_leading(input, "v")
 
-    IO.puts("""
-
-    ✅ pushed v#{new} — the release workflow is building the NIFs.
-       Final step: approve the `hex` deployment to publish:
-       #{actions_url()}
-    """)
+    with {:ok, parsed} <- Version.parse(version),
+         :gt <- Version.compare(parsed, Version.parse!(current)) do
+      if tag_exists?("v#{version}"), do: die("tag v#{version} already exists.")
+      version
+    else
+      :error -> die("'#{input}' is not a version (expected MAJOR.MINOR.PATCH).")
+      _ -> die("#{version} is not newer than the current #{current}.")
+    end
   end
 
   # ── mix.exs ────────────────────────────────────────────────────────────────
@@ -91,6 +129,21 @@ defmodule Release do
   defp bump_mix!(old, new) do
     src = File.read!("mix.exs")
     File.write!("mix.exs", String.replace(src, ~s(@version "#{old}"), ~s(@version "#{new}")))
+  end
+
+  # ── README ─────────────────────────────────────────────────────────────────
+  # Keeps the install snippet (`{:app, "~> X.Y"}`) pointing at the new series.
+  defp bump_readme!(app, new) do
+    {maj, min, _} = parse(new)
+
+    with true <- File.exists?("README.md") do
+      src = File.read!("README.md")
+
+      File.write!(
+        "README.md",
+        Regex.replace(~r/(\{:#{app},\s*"~> )[^"]+(")/, src, "\\g{1}#{maj}.#{min}\\g{2}")
+      )
+    end
   end
 
   # ── CHANGELOG ──────────────────────────────────────────────────────────────
@@ -124,6 +177,15 @@ defmodule Release do
       "" -> :ok
       _ -> die("working tree is dirty — commit or stash first.")
     end
+  end
+
+  defp tag_exists?(tag) do
+    match?(
+      {_, 0},
+      System.cmd("git", ["rev-parse", "-q", "--verify", "refs/tags/#{tag}"],
+        stderr_to_stdout: true
+      )
+    )
   end
 
   defp confirm_branch!(b) when b in ["master", "main"], do: :ok
@@ -169,4 +231,4 @@ defmodule Release do
   end
 end
 
-Release.run()
+Release.run(System.argv())

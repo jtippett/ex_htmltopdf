@@ -174,8 +174,9 @@ Update sghtmltopdf to <short-hash> (<tag>)
 
 ## Release
 
-Run `just release` (interactive: bumps mix.exs, rolls the CHANGELOG, tags,
-pushes). The tag push triggers `.github/workflows/release.yml`:
+Run `just release` (interactive: bumps mix.exs and the README install
+snippet, rolls the CHANGELOG, tags, pushes), or `just release <VERSION>` to
+release an exact version. The tag push triggers `.github/workflows/release.yml`:
 
 1. builds the 4 target NIFs and attaches them to a GitHub release;
 2. the `publish` job (gated on approval of the `hex` GitHub environment)
