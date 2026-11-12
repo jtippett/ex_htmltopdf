@@ -5,17 +5,10 @@ defmodule ExHtmltopdf.OptionsTest do
 
   doctest ExHtmltopdf.Options
 
-  @prefix ["sghtmltopdf", "-", "--output", "-"]
+  defp argv(opts), do: Options.to_argv(opts)
 
-  # Exact prefix match — `--` list subtraction would silently strip a value
-  # that happens to equal a prefix element (e.g. an option value of "-").
-  defp argv(opts) do
-    ["sghtmltopdf", "-", "--output", "-" | rest] = Options.to_argv(opts)
-    rest
-  end
-
-  test "empty options produce only the stdin/stdout placeholder prefix" do
-    assert Options.to_argv([]) == @prefix
+  test "empty options produce an empty list (no program name or placeholders)" do
+    assert Options.to_argv([]) == []
   end
 
   test "value options become --flag value with underscores dashed" do

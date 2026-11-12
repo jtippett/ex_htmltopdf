@@ -7,7 +7,8 @@ written in Rust on Servo components (html5ever, Stylo, Taffy).
 - **No headless browser.** No Chrome, no wkhtmltopdf binary, no ports or
   System.cmd — the engine runs in-process on a dirty scheduler.
 - **Modern CSS.** Flexbox, Grid, custom properties, `@page` rules, repeating
-  table headers across page breaks.
+  table headers across page breaks. SVG (`<img>`, backgrounds, inline
+  `<svg>`) is embedded as vectors.
 - **Precompiled.** Ships prebuilt NIFs for macOS/Linux (arm64 + x86_64) via
   `rustler_precompiled` — users need no Rust toolchain.
 - **Fast.** Upstream benchmarks ~21× faster than wkhtmltopdf and ~53× faster
@@ -62,10 +63,14 @@ margin_top: "20mm"                  # --margin-top 20mm (all four sides availabl
 grayscale: true                     # bare flag; false/nil omits it
 dpi: 300
 zoom: 1.25
-title: "Q3 Report"                  # PDF metadata (also author/subject/keywords)
+title: "Q3 Report"                  # PDF metadata (also author/subject/keywords/creator)
+creation_date: "2026-10-22T10:30:00Z"  # fixed /CreationDate → byte-reproducible output
+tagged: true                        # tagged PDF (structure tree for screen readers;
+                                    # not available with streaming: true)
 header_center: "Confidential"       # simple headers/footers (+ _left/_right)
 footer_center: "Page [page] of [topage]"
-header_html: "header.html"          # full HTML headers/footers
+header_html: "header.html"          # full HTML headers/footers from a file…
+footer_html_content: "<p>[page]</p>"  # …or as markup, no temp file needed
 toc: true                           # table of contents
 cover: "cover.html"
 user_style_sheet: "print.css"       # may repeat: pass a list
@@ -79,6 +84,8 @@ base_url: "https://example.com/"    # resolve relative <img>/<link> paths —
 font: "/fonts/NotoSansJP.ttf"       # embed fonts; .ttc faces:
 font: %{path: "/fonts/Hiragino.ttc", index: 1}
 gothic_font: "/fonts/NotoSansJP.ttf"  # pin CSS generic families
+disable_system_fonts: true          # only the fonts named above — same PDF on
+                                    # every machine
 ```
 
 See the [upstream documentation](https://waka.github.io/sghtmltopdf/en/) for
@@ -97,8 +104,8 @@ classes: `:usage` (bad options), `:input` (missing file/font, unwritable
 output), `:render` (engine constraint), `:timeout`, plus `:panic` for a
 contained native bug (the VM survives; please report upstream).
 
-Messages are upstream's text verbatim — often Japanese (clap's parse errors
-are English). Match on `kind`, never on `message`.
+Messages are upstream's text verbatim, and upstream treats the wording as
+free to change. Match on `kind`, never on `message`.
 
 ### Missing assets, warnings, and runaway documents
 
@@ -127,7 +134,9 @@ Two engine policies matter when the HTML isn't yours:
 - **Local file access is ON by default** (upstream CLI compatibility):
   `<img src="/etc/anything">` and `file://` references read from the host
   filesystem. For untrusted input, pass `disable_local_file_access: true`,
-  or `allow: ["/safe/dir"]` to restrict reads to specific directories.
+  or `allow_path: ["/safe/dir"]` to restrict reads to specific directories
+  (`allow:` is the wkhtmltopdf spelling and still works; use one spelling,
+  not both — the two add up rather than override).
 
 ```elixir
 ExHtmltopdf.render(untrusted_html, disable_local_file_access: true)
@@ -155,7 +164,7 @@ end
 
 ## Development
 
-Requires a Rust toolchain. `EXHTMLTOPDF_BUILD=1` forces building the NIF
+Requires a Rust toolchain (1.89+, upstream's MSRV). `EXHTMLTOPDF_BUILD=1` forces building the NIF
 from source instead of downloading a precompiled one:
 
 ```bash

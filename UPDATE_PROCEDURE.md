@@ -6,9 +6,10 @@ update ExHtmltopdf.
 ## Overview
 
 ExHtmltopdf pins a specific sghtmltopdf git revision in
-`native/ex_htmltopdf/Cargo.toml` (`sghtmltopdf-core` is not published to
-crates.io — same situation as ExMonty/monty). This procedure walks through
-pulling, assessing, and integrating changes.
+`native/ex_htmltopdf/Cargo.toml` (the ExMonty/monty approach; the crate is
+also on crates.io as `sghtmltopdf`, but `ExHtmltopdf.upstream_revision/0`
+reads the hash from the git pin). This procedure walks through pulling,
+assessing, and integrating changes.
 
 **Track tagged releases, not `main`.** Upstream cuts `v0.x.y` tags; target the
 latest tag unless the user explicitly asks to chase `main`.
@@ -26,7 +27,16 @@ cd ../sghtmltopdf && git fetch origin --tags
 git tag --sort=-version:refname | head -5
 ```
 
-Pick the highest tag. That's the **target rev** for this update.
+Pick the highest tag. That's the **target rev** for this update. Check the
+tag out (`git checkout --detach <TARGET_TAG>`) — Phase 2's path dependency
+builds whatever the working tree holds.
+
+Read `CHANGELOG.md` at the target tag first: its `Changed`/`Removed`
+sections are the fastest route to what breaks, and the source for our own
+CHANGELOG entry.
+
+zsh note: write `git show ${TAG}:path`, not `$TAG:path` — `:c` and friends
+are history modifiers and silently eat the first character of the path.
 
 ### 1.2 Identify our current pin
 
@@ -50,7 +60,12 @@ git diff <OUR_PINNED_REV>..<TARGET_TAG> -- \
 
 # 2. The functions we call directly:
 git diff <OUR_PINNED_REV>..<TARGET_TAG> -- \
-  core/src/cli/mod.rs core/src/cli/convert.rs core/src/sink/mod.rs
+  core/src/lib.rs core/src/cli/mod.rs core/src/cli/converter.rs \
+  core/src/render_stack.rs core/src/sink/mod.rs
+
+# 2b. Features and MSRV (compare with what bindings/ruby enables):
+git diff <OUR_PINNED_REV>..<TARGET_TAG> -- \
+  core/Cargo.toml bindings/ruby/ext/sghtmltopdf/Cargo.toml
 
 # 3. Engine surfaces backing security-relevant options:
 git diff <OUR_PINNED_REV>..<TARGET_TAG> -- \
@@ -60,23 +75,28 @@ git diff <OUR_PINNED_REV>..<TARGET_TAG> -- \
 git log --oneline <OUR_PINNED_REV>..<TARGET_TAG> -- bindings/ruby
 ```
 
-We call exactly: `cli::parse_convert_argv`, `cli::with_render_stack`,
-`cli::CliError` (all four variants), `convert::render`,
-`convert::render_to_memory`, `sink::{MemorySink, FileSink}`, and
-`layout::PageSettings` (smoke probe). A change to any of their signatures is
-a breaking change for us.
+We call exactly these crate-root re-exports (upstream's semver-covered
+public API): `Converter::{from_args, render, render_to_vec}`,
+`with_render_stack`, `ConvertError` (four variants), `FileSink::create`, and
+`PageSettings` (smoke probe). A change to any of their signatures is a
+breaking change for us.
 
 For every update, explicitly re-check these invariants rather than relying
 on compilation:
 
-- `parse_convert_argv` still expects `argv[0]` to be a program name, and `-`
-  input still requires `--output` (our `Options.to_argv/1` prefix depends on
-  both);
+- `Converter::from_args` still takes the flags alone — no program name, no
+  input path, `--output` rejected (`Options.to_argv/1` emits exactly that);
 - `FileSink` still writes temp-file-then-rename (our "no truncated PDF"
-  doc promise);
+  doc promise), and its temp name is still derived from the pid alone (if it
+  becomes unique per call, the `.part` intermediate in `render_to_file` can
+  go);
 - remote asset fetching is still default-off; local file access defaults and
   `--allow` containment semantics unchanged (README security section);
-- `CliError` variants still map 1:1 to our `Error.kind`s;
+- `ConvertError` variants still map 1:1 to our `Error.kind`s. The enum is
+  `#[non_exhaustive]`, so a new variant **compiles** and falls into the
+  catch-all arm as `:render` — diff the enum by eye and add a kind;
+- the feature set still matches the Ruby gem's (`cli` + `svg` today), and
+  `rust-version` in our `Cargo.toml` is at least upstream's;
 - `with_render_stack`'s stack size still covers the engine's recursion needs
   (upstream owns this, but a removal/rename breaks us loudly — good).
 
@@ -95,9 +115,13 @@ users can discover them.
 Edit `native/ex_htmltopdf/Cargo.toml`:
 
 ```toml
-# sghtmltopdf-core = { git = "https://github.com/waka/sghtmltopdf.git", rev = "...", default-features = false, features = ["cli"] }
-sghtmltopdf-core = { path = "../../../sghtmltopdf/core", default-features = false, features = ["cli"] }
+# sghtmltopdf = { git = "https://github.com/waka/sghtmltopdf.git", rev = "<40_CHAR_HASH>", default-features = false, features = ["cli", "svg"] }
+sghtmltopdf = { path = "../../../sghtmltopdf/core", default-features = false, features = ["cli", "svg"] }
 ```
+
+Keep the commented git line with a real 40-char hash in it:
+`ExHtmltopdf.upstream_revision/0` extracts `rev = "…"` from this file at
+compile time, and the Elixir build fails without one.
 
 ### 2.2 Build, fix, test
 
@@ -122,7 +146,7 @@ moduledoc (especially the security posture section), CHANGELOG `[Unreleased]`.
 ### 3.1 Switch back to the git dependency
 
 ```toml
-sghtmltopdf-core = { git = "https://github.com/waka/sghtmltopdf.git", rev = "<FULL_40_CHAR_HASH>", default-features = false, features = ["cli"] }
+sghtmltopdf = { git = "https://github.com/waka/sghtmltopdf.git", rev = "<FULL_40_CHAR_HASH>", default-features = false, features = ["cli", "svg"] }
 ```
 
 Use the full hash of the commit the **target tag** points at
@@ -132,7 +156,7 @@ tag is force-updated.
 ### 3.2 Verify a clean build from the git dep
 
 ```bash
-cd native/ex_htmltopdf && cargo update -p sghtmltopdf-core
+cd native/ex_htmltopdf && cargo update -p sghtmltopdf
 cd ../.. && mix clean && EXHTMLTOPDF_BUILD=1 mix test
 ```
 

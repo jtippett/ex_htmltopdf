@@ -2,7 +2,7 @@
 name = "ex_htmltopdf"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.89"
 
 [lib]
 name = "ex_htmltopdf"
@@ -12,18 +12,24 @@ crate-type = ["cdylib"]
 [dependencies]
 rustler = "0.38"
 
-# sghtmltopdf-core is NOT published to crates.io (the Ruby binding uses a path
-# dep), so we pin the full 40-char hash of the commit the latest upstream tag
-# points at — the ExMonty approach. Bump deliberately via UPDATE_PROCEDURE.md.
+# Pinned to the full 40-char hash of the commit the latest upstream tag points
+# at — the ExMonty approach. Bump deliberately via UPDATE_PROCEDURE.md. (The
+# crate is also on crates.io as `sghtmltopdf`; we
+# keep the git pin so `ExHtmltopdf.upstream_revision/0` stays exact.)
 #
 # Feature notes:
-#   - default = ["cli", "server"]. We need "cli" — not for clap's argv parsing
-#     alone, but because `cli::parse_convert_argv` is the shared option parser
-#     that the CLI, the HTTP server, and the Ruby binding all use. Reusing it
-#     keeps one option surface across every entry point (Elixir builds the argv,
+#   - default = ["cli", "server", "svg"]. We need "cli": it provides
+#     `Converter`, the binding entry point that runs the same option parser as
+#     the CLI, the HTTP server, and the Ruby binding. Reusing it keeps one
+#     option surface across every entry point (Elixir builds the option list,
 #     exactly like the Ruby gem does).
+#   - "svg" embeds `<img src="*.svg">`, `background-image: url(*.svg)` and
+#     inline `<svg>` as vectors. Matches the CLI default and the Ruby gem.
+#     ("svg-text" — glyphs for `<text>` inside an SVG — stays off, as upstream
+#     defaults it: 25 extra crates.)
 #   - "server" (tiny_http) is the standalone HTTP server mode. Useless inside
 #     the BEAM (Plug exists) — left off.
-sghtmltopdf-core = { git = "https://github.com/waka/sghtmltopdf.git", rev = "d774b79aaf5181cd4ceccd34ede115fdc6a34595", default-features = false, features = [
+sghtmltopdf = { git = "https://github.com/waka/sghtmltopdf.git", rev = "91b85a6163dcd2589605bdecbc20905ec1d67f4b", default-features = false, features = [
     "cli",
+    "svg",
 ] }

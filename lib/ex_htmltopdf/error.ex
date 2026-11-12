@@ -14,9 +14,9 @@ defmodule ExHtmltopdf.Error do
     * `:panic` — a bug in the native engine, contained and reported instead of
       crashing the VM (please report upstream)
 
-  `message` is upstream's text verbatim, and upstream's own messages are
-  written in Japanese (clap's parse errors are English, so mixes occur).
-  Match on `kind`, never on `message`.
+  `message` is upstream's text verbatim. Upstream treats the classification
+  as public API and the wording as free to change — match on `kind`, never
+  on `message`.
   """
 
   defexception [:kind, :message]

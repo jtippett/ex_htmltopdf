@@ -16,7 +16,7 @@ shippable on its own.
 
 ## 0. The shape of the thing
 
-ExHtmltopdf is a thin **Rustler NIF** over the `sghtmltopdf-core` crate,
+ExHtmltopdf is a thin **Rustler NIF** over the `sghtmltopdf` crate,
 distributed as a **precompiled binary** via `rustler_precompiled` so end users
 need no Rust toolchain. sghtmltopdf renders HTML to PDF using Servo components
 (html5ever, Stylo, Taffy) — no headless browser, no external binary.
@@ -35,7 +35,8 @@ only marshal data across the boundary.
 
 **The load-bearing design decision:** upstream deliberately routes every
 entry point — CLI, HTTP server, Ruby gem — through **one option parser**,
-`cli::parse_convert_argv`. The Ruby binding builds a CLI argv from a Ruby
+fronted for bindings by `Converter::from_args` (originally
+`cli::parse_convert_argv`). The Ruby binding builds a CLI argv from a Ruby
 hash and passes it through; we do exactly the same from Elixir
 (`ExHtmltopdf.Options.to_argv/1`). This means:
 
@@ -75,7 +76,11 @@ request (`--timeout` is a *server launch* option, not a convert option), and
 `clap(skip)` keeps it out of the parser. Exposing `timeout_ms:` from Elixir
 means setting `deadline` on the parsed `ConvertArgs` **after**
 `parse_convert_argv` — a small, honest post-parse touch-up in the NIF, and
-the one place we deviate from pure argv passthrough (phase 3). Note the
+the one place we deviate from pure argv passthrough (phase 3).
+**As of upstream v0.7.0 this is blocked:** bindings now go through
+`Converter`, whose `ConvertArgs` is private, and `convert::render_with` is
+`pub(crate)`, so there is no way to set `deadline` from outside the crate.
+Phase 3 needs an upstream API (e.g. `Converter::with_deadline`) first. Note the
 upstream caveat: the deadline is checked between chunks/elements/pages, so
 overruns are detected late by up to one layout call. A running dirty NIF
 cannot be killed from the BEAM — the deadline is the *only* way to bound a
@@ -99,11 +104,12 @@ preceding font). `Options.to_argv/1` already encodes this; don't reorder
 pairs. System font fallback uses fontdb; generic families are overridable
 (`gothic_font:`/`serif_font:`/`mono_font:`).
 
-### f) Upstream is git-only
+### f) Upstream is pinned by git hash
 
-`sghtmltopdf-core` is **not on crates.io** (the Ruby gem uses a path dep), so
-like ExMonty we pin a full 40-char git hash of the commit a release tag
-points at. `UPDATE_PROCEDURE.md` has the bump procedure. Upstream is at
+Like ExMonty we pin a full 40-char git hash of the commit a release tag
+points at. (The crate was git-only when this was written; it is now
+also on crates.io as `sghtmltopdf`. The git pin stays because
+`ExHtmltopdf.upstream_revision/0` reads the hash from `Cargo.toml`.) `UPDATE_PROCEDURE.md` has the bump procedure. Upstream is at
 `../sghtmltopdf` (sibling checkout).
 
 ---
@@ -119,12 +125,12 @@ subagent → fold fixes → commit → watch CI.
 
 ### Phase 1 — `render/2` + `render_to_file/3` ✅ (this scaffold)
 
-- `render(html, opts)` → `{:ok, pdf_binary}`; DirtyCpu NIF; argv through
-  `parse_convert_argv`; render inside `with_render_stack`;
-  `convert::render_to_memory` + `MemorySink`.
+- `render(html, opts)` → `{:ok, pdf_binary}`; DirtyCpu NIF; options through
+  `Converter::from_args`; render inside `with_render_stack`;
+  `Converter::render_to_vec`.
 - `render_to_file(html, path, opts)` → `:ok`; `FileSink` (temp file + rename,
   never leaves a truncated PDF).
-- Errors: `CliError`'s four classes (`Usage`/`Input`/`Render`/`Timeout`) →
+- Errors: `ConvertError`'s four classes (`Usage`/`Input`/`Render`/`Timeout`) →
   `{:error, %Error{kind: :usage | :input | :render | :timeout}}`, plus
   `:panic` for contained native panics (`catch_unwind` inside the NIF keeps
   the error contract total; rustler's own catch would raise an opaque

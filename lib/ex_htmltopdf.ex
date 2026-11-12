@@ -19,6 +19,12 @@ defmodule ExHtmltopdf do
     * `margin_top: "20mm"` (and `_bottom`/`_left`/`_right`)
     * `grayscale: true`, `no_images: true`, `no_background: true`
     * `header_html: path`, `footer_html: path`, `toc: true`, `cover: path`
+    * `header_html_content: html`, `footer_html_content: html` (markup
+      instead of a file)
+    * `tagged: true` (tagged PDF for assistive technology),
+      `creation_date: "2026-10-22"` (reproducible output), `creator: "…"`
+    * `disable_system_fonts: true` (only the fonts you pass — same PDF on
+      every machine)
     * `font: "/path/to/font.ttf"` (see `ExHtmltopdf.Options` for `.ttc` faces)
     * `user_style_sheet: path`, `minimum_font_size: 9`
 
@@ -28,7 +34,8 @@ defmodule ExHtmltopdf do
   **off** by default upstream; opt in with `allow_remote_assets: true`.
   Local file access follows the upstream CLI default (allowed, unrestricted);
   restrict it with `disable_local_file_access: true` or
-  `allow: ["/safe/dir"]` when rendering untrusted HTML.
+  `allow_path: ["/safe/dir"]` (`allow:` is an alias) when rendering
+  untrusted HTML.
 
   ## Operational notes
 

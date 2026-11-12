@@ -8,7 +8,7 @@ defmodule ExHtmltopdfTest do
   @html "<!doctype html><html><body><h1>Hello, PDF</h1><p>from Elixir</p></body></html>"
 
   describe "NIF loading" do
-    test "the native library links against sghtmltopdf-core" do
+    test "the native library links against sghtmltopdf" do
       assert ExHtmltopdf.Native.default_page_size() =~ ~r/^\d+(\.\d+)?x\d+(\.\d+)?$/
     end
 
@@ -51,6 +51,36 @@ defmodule ExHtmltopdfTest do
       # upstream keeps a deliberate unsupported-flags list with explanations
       assert {:error, %Error{kind: :usage}} =
                ExHtmltopdf.render(@html, enable_javascript: true)
+    end
+
+    test "flags added upstream since the first pin pass straight through" do
+      assert {:ok, pdf} =
+               ExHtmltopdf.render(@html,
+                 tagged: true,
+                 creator: "ExHtmltopdf tests",
+                 creation_date: "2026-10-22T10:30:00Z",
+                 disable_system_fonts: false,
+                 footer_html_content: "<p>[page]</p>"
+               )
+
+      assert <<"%PDF-", _::binary>> = pdf
+      assert pdf =~ "ExHtmltopdf tests"
+      assert pdf =~ "StructTreeRoot"
+    end
+
+    test "creation_date makes output reproducible" do
+      opts = [creation_date: "2026-10-22"]
+      assert ExHtmltopdf.render(@html, opts) == ExHtmltopdf.render(@html, opts)
+    end
+
+    test "inline <svg> renders (the svg feature is compiled in)" do
+      svg =
+        ~s(<svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"/></svg>)
+
+      {:ok, with_svg} = ExHtmltopdf.render("<p>x</p>" <> svg, no_pdf_compression: true)
+      {:ok, without} = ExHtmltopdf.render("<p>x</p>", no_pdf_compression: true)
+      assert byte_size(with_svg) > byte_size(without)
+      assert with_svg =~ "/XObject"
     end
 
     test "a missing font file is an :input error" do

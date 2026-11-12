@@ -1,7 +1,7 @@
 defmodule ExHtmltopdf.Options do
   @moduledoc """
-  Turns an Elixir options keyword list into the CLI argv the native engine
-  consumes.
+  Turns an Elixir options keyword list into the CLI-style option list the
+  native engine consumes.
 
   sghtmltopdf exposes one option surface — the CLI flags — shared by the CLI,
   the HTTP server, and the Ruby gem. This module is the Elixir equivalent of
@@ -14,7 +14,7 @@ defmodule ExHtmltopdf.Options do
       page_size: "A4"          → ["--page-size", "A4"]
       grayscale: true          → ["--grayscale"]
       grayscale: false         → []  (also for nil)
-      allow: ["/a", "/b"]      → ["--allow", "/a", "--allow", "/b"]
+      allow_path: ["/a", "/b"] → ["--allow-path", "/a", "--allow-path", "/b"]
       margin_top: 20           → ["--margin-top", "20"]
 
   `:font` is the one special case, because `--font-index` binds to the
@@ -35,32 +35,25 @@ defmodule ExHtmltopdf.Options do
   per-character flags. Pass binaries (`"Report"`).
   """
 
-  # Input is always `-` (stdin placeholder — the actual bytes cross the NIF
-  # boundary directly and this argument is never read). Output is decided by
-  # the Rust sink, so it is a placeholder too; it can't be omitted because the
-  # CLI requires --output when input is `-`.
-  @argv_prefix ["sghtmltopdf", "-", "--output", "-"]
-
   @doc """
-  Builds the argv list for the native option parser.
+  Builds the option list for the native option parser — the flags as they
+  would be written on the command line, without a program name, input, or
+  output (upstream's `Converter` supplies those itself).
 
       iex> ExHtmltopdf.Options.to_argv(page_size: "A4", grayscale: true)
-      ["sghtmltopdf", "-", "--output", "-", "--page-size", "A4", "--grayscale"]
+      ["--page-size", "A4", "--grayscale"]
 
       iex> ExHtmltopdf.Options.to_argv([])
-      ["sghtmltopdf", "-", "--output", "-"]
+      []
   """
   @spec to_argv(keyword() | map()) :: [String.t()]
   def to_argv(options) do
-    args =
-      Enum.flat_map(options, fn {key, value} ->
-        Enum.flat_map(pairs_for(key, value), fn
-          {name, nil} -> ["--#{name}"]
-          {name, arg} -> ["--#{name}", arg]
-        end)
+    Enum.flat_map(options, fn {key, value} ->
+      Enum.flat_map(pairs_for(key, value), fn
+        {name, nil} -> ["--#{name}"]
+        {name, arg} -> ["--#{name}", arg]
       end)
-
-    @argv_prefix ++ args
+    end)
   end
 
   # One key/value into a list of {flag-name, value-or-nil} pairs. A nil value
